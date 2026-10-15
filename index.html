@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>미궁 방어대 — 프로토타입 (HD32 · v0.6)</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="phone-shell">
+  <canvas id="game" width="720" height="1280" aria-label="미궁 방어대 게임 화면"></canvas>
+
+  <!-- ===== 시작 화면 ===== -->
+  <section class="overlay on" id="startScreen">
+    <div class="card">
+      <p class="kicker">LABYRINTH DEFENSE</p>
+      <h1>미궁 방어대</h1>
+      <p class="desc">테트로미노 조각으로 <b>미로</b>를 깔아<br>적이 성에 닿기까지의 <b>경로를 꼬아라!</b></p>
+      <div class="legend">
+        <div><span class="lg lg-floor"></span> 바닥</div>
+        <div><span class="lg lg-wall"></span> 벽(조각)</div>
+        <div><span class="lg lg-hole"></span> 적 스폰</div>
+        <div><span class="lg lg-castle"></span> 성</div>
+        <div><span class="lg lg-ballista"></span> 석궁</div>
+        <div><span class="lg lg-path"></span> 적 경로</div>
+      </div>
+      <ul class="rules">
+        <li>조각을 <b>끌어다 놓기</b>(드래그) · 탭 = 회전 · <b>성 옆에도 설치 가능</b></li>
+        <li><b>길을 완전히 막아도 됩니다</b> — 막히면 적이 벽을 <b>부수고</b> 뚫습니다</li>
+        <li>적을 잡아 모은 <b>골드</b>로 잠긴 조각을 사고, <b>벽 내구도·대포 공격력</b>을 업그레이드</li>
+        <li><b>10웨이브 = 1스테이지</b> — 클리어하면 <b>강화 상점</b>이 열리고 다음 스테이지는 더 강해집니다</li>
+        <li>한 줄(가로/세로)을 채우면 <b>폭발</b> — 그 줄 적 전멸</li>
+      </ul>
+      <label class="name-row">닉네임
+        <input id="nameInput" type="text" maxlength="12" placeholder="자동 생성" autocomplete="off">
+      </label>
+      <button class="primary" id="startButton">방어 시작</button>
+      <p class="seed-note">시드 고정 · 전원 동일 조건 (프로토타입 v0.6)</p>
+    </div>
+  </section>
+
+  <!-- ===== 결과 + 게이트 G1 질문 ===== -->
+  <section class="overlay" id="resultScreen" aria-hidden="true">
+    <div class="card">
+      <p class="kicker">RESULT</p>
+      <h1 id="resultTitle">게임 종료</h1>
+      <div class="result-grid">
+        <div><span>점수</span><strong id="resultScore">0</strong></div>
+        <div><span>클리어 웨이브</span><strong id="resultWave">0</strong></div>
+        <div><span>도달 스테이지</span><strong id="resultStage">STAGE 1</strong></div>
+        <div><span>잔여 성 HP</span><strong id="resultHp">0</strong></div>
+        <div><span>생존 시간</span><strong id="resultTime">0초</strong></div>
+      </div>
+
+      <!-- 게이트 G1 측정: '한 판 더' 비율 -->
+      <div class="gate" id="gateBox">
+        <p class="gate-q">한 판 더 하시겠어요?</p>
+        <p class="gate-sub">(이 답변이 다음 게임 제작 여부를 결정합니다 · 게이트 G1)</p>
+        <div class="gate-btns">
+          <button class="primary" id="playAgainYes">한 판 더!</button>
+          <button class="ghost" id="playAgainNo">그만하기</button>
+        </div>
+        <p class="gate-stat" id="gateStat"></p>
+      </div>
+
+      <button class="primary hidden" id="restartButton">다시 도전</button>
+    </div>
+  </section>
+
+  <!-- ===== 스테이지 클리어 + 강화 상점 ===== -->
+  <section class="overlay" id="stageScreen" aria-hidden="true">
+    <div class="card">
+      <p class="kicker">STAGE CLEAR</p>
+      <h1 id="stageTitle">STAGE 1 클리어!</h1>
+      <p class="desc">모은 골드로 <b>대포</b>와 <b>벽 내구도</b>를 강화하고<br>다음 스테이지로 가세요.</p>
+      <p class="desc">보유 골드 <strong id="stageGold">0</strong> G</p>
+      <button class="primary" id="upCannon">대포 공격력 강화</button>
+      <button class="primary" id="upDura">벽 내구도 강화</button>
+      <button class="ghost" id="nextStage">다음 스테이지 ▶</button>
+      <p class="seed-note">다음 스테이지는 적이 더 빠르고 단단해집니다 (벽은 그대로 유지)</p>
+    </div>
+  </section>
+
+  <!-- ===== 하단 조작 안내 (도트 캔버스 밖 텍스트) ===== -->
+  <footer class="hint" id="hintBar">드래그 = 배치 · 탭 = 회전 · 하단 칩 = 업그레이드</footer>
+</div>
+
+<script src="game.js?v=20261014-6"></script>
+</body>
+</html>
