@@ -3,44 +3,40 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>미궁 방어대 — 프로토타입 (HD32 · v0.6.2)</title>
-<link rel="stylesheet" href="styles.css?v=20261015-7">
+<title>미궁 방어대 — 프로토타입 (HD32 · v0.7)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gothic+A1:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=20261015-8">
 </head>
 <body>
 <div class="phone-shell">
   <canvas id="game" width="720" height="1280" aria-label="미궁 방어대 게임 화면"></canvas>
 
-  <!-- ===== 시작 화면 ===== -->
+  <!-- ===== 시작 화면 (v0.7 리뉴얼 2차: 범례 제거 · 게임 방법 · 폰트) ===== -->
   <section class="overlay on" id="startScreen">
     <div class="card title-card">
-      <p class="kicker">LABYRINTH DEFENSE · HD32</p>
+      <p class="kicker">LABYRINTH DEFENSE</p>
       <h1 class="game-title">미궁 방어대</h1>
-      <p class="tagline">테트로미노로 <b>미로</b>를 깔아 적의 길을 끊어라</p>
+      <p class="tagline">테트로미노로 <b>미로</b>를 깔아<br>적의 길을 끊어라</p>
+
       <div class="title-stats">
         <div><span>스테이지</span><strong>10 웨이브</strong></div>
-        <div><span>성 HP</span><strong>5</strong></div>
+        <div><span>성 체력</span><strong>5</strong></div>
         <div><span>최고 기록</span><strong id="bestRecord">—</strong></div>
       </div>
-      <div class="legend">
-        <div><span class="lg lg-floor"></span> 바닥</div>
-        <div><span class="lg lg-wall"></span> 벽(내구도)</div>
-        <div><span class="lg lg-hole"></span> 적 스폰</div>
-        <div><span class="lg lg-castle"></span> 성</div>
-        <div><span class="lg lg-ballista"></span> 대포</div>
-        <div><span class="lg lg-path"></span> 적 경로</div>
-      </div>
-      <ul class="rules">
-        <li>조각을 <b>끌어다 놓기</b>(드래그) · 탭 = 회전 · <b>성 옆에도 설치 가능</b></li>
-        <li><b>길을 완전히 막아도 됩니다</b> — 막히면 적이 벽을 <b>부수고</b> 뚫습니다</li>
-        <li>적을 잡아 모은 <b>골드</b>로 잠긴 조각을 사고, <b>벽 내구도·대포 공격력</b>을 업그레이드</li>
-        <li><b>10웨이브 = 1스테이지</b> — 클리어하면 <b>강화 상점</b>이 열리고 다음 스테이지는 더 강해집니다</li>
-        <li>한 줄(가로/세로)을 채우면 <b>폭발</b> — 그 줄 적 전멸</li>
-      </ul>
+
+      <ol class="howto">
+        <li><b>드래그로 조각 배치</b><span>성 옆 칸에도 설치됩니다 · 탭 = 회전</span></li>
+        <li><b>막힌 적은 벽을 부순다</b><span>벽마다 내구도 · 골드로 벽 내구도와 대포 공격력을 강화</span></li>
+        <li><b>10웨이브 = 스테이지 클리어</b><span>한 줄을 완성하면 폭발 · 클리어하면 강화 상점이 열립니다</span></li>
+      </ol>
+
       <label class="name-row">닉네임
         <input id="nameInput" type="text" maxlength="12" placeholder="자동 생성" autocomplete="off">
       </label>
       <button class="primary big" id="startButton">방어 시작</button>
-      <p class="seed-note">시드 고정 · 전원 동일 조건 (프로토타입 v0.6.2)</p>
+      <p class="seed-note">시드 고정 · 전원 동일 조건 · 프로토타입 v0.7</p>
     </div>
   </section>
 
@@ -90,6 +86,6 @@
   <footer class="hint" id="hintBar">드래그 = 배치 · 탭 = 회전 · 하단 칩 = 업그레이드</footer>
 </div>
 
-<script src="game.js?v=20261015-62"></script>
+<script src="game.js?v=20261015-8"></script>
 </body>
 </html>

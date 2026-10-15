@@ -40,7 +40,7 @@ body{
 .overlay{
   position:absolute;inset:0;
   display:none;align-items:center;justify-content:center;
-  padding:5% 6%;
+  padding:calc(5% + env(safe-area-inset-top,0px)) 6% calc(5% + env(safe-area-inset-bottom,0px));
   background:linear-gradient(180deg,rgba(43,53,80,.86),rgba(32,40,60,.94));
   z-index:10;
 }
@@ -119,26 +119,49 @@ button{font:inherit;cursor:pointer;border:2px solid #2b3550;border-radius:4px}
   z-index:5;pointer-events:none;
 }
 
-/* ===== 타이틀 화면 리뉴얼 (v0.6.2) ===== */
+/* ===== 폰트 (v0.7) ===== */
+:root{
+  --font-body:'Gothic A1',"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
+  --font-title:'Do Hyeon',"Gothic A1","Malgun Gothic",sans-serif;
+  --font-pixel:'Press Start 2P',ui-monospace,SFMono-Regular,monospace;
+}
+body{font-family:var(--font-body)}
+h1,#stageTitle,#resultTitle{font-family:var(--font-title);font-weight:400}
+.kicker{font-family:var(--font-pixel);font-size:9px;line-height:1.7;letter-spacing:.14em}
+button{font-family:var(--font-title);letter-spacing:.01em}
+.rules li,.howto b,.howto span,.desc,.tagline,.coinhint,.title-stats span,.title-stats strong,.name-row{word-break:keep-all}
+
+/* ===== 타이틀 화면 리뉴얼 2차 (v0.7) — 범례 제거, 게임 방법 3단계 ===== */
 .title-card{
-  max-width:520px;padding:26px 20px 20px;
+  max-width:520px;padding:26px 22px 20px;
   background:linear-gradient(180deg,#fffdf5 0%,#fdf3d8 60%,#f6e3b0 100%);
   box-shadow:8px 8px 0 rgba(20,26,40,.55), inset 0 0 0 3px rgba(246,196,68,.34);
 }
 .game-title{
-  font-size:38px;line-height:1.05;letter-spacing:-1px;margin:2px 0 8px;color:#2b3550;
-  text-shadow:0 2px 0 #f6c344, 0 5px 0 rgba(43,53,80,.22);
+  font-size:46px;line-height:1.02;letter-spacing:.01em;margin:4px 0 8px;color:#2b3550;
+  text-shadow:0 3px 0 #f6c344, 0 7px 12px rgba(43,53,80,.22);
 }
-.tagline{font-size:14px;color:var(--ink-soft);margin-bottom:14px}
+.tagline{font-size:14.5px;line-height:1.5;color:var(--ink-soft);margin-bottom:14px}
 .tagline b{color:var(--accent)}
 .title-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
-.title-stats>div{background:rgba(255,255,255,.82);border:2px solid var(--line);border-radius:4px;padding:8px 4px}
+.title-stats>div{background:rgba(255,255,255,.86);border:2px solid var(--line);border-radius:5px;padding:8px 4px}
 .title-stats span{display:block;font-size:11px;color:#8a8272;margin-bottom:2px}
-.title-stats strong{font-size:15px}
-.title-card .legend{padding:10px;margin-bottom:12px;font-size:12px;gap:7px 8px}
-.title-card .rules{font-size:12.5px;line-height:1.62;margin-bottom:14px}
+.title-stats strong{font-size:17px;color:var(--ink);font-family:var(--font-title)}
+.howto{counter-reset:step;list-style:none;text-align:left;margin:0 0 14px;padding:13px 13px 11px;
+  background:#f3ecd6;border:2px dashed var(--line);border-radius:8px}
+.howto li{position:relative;padding:0 0 10px 32px;font-size:14px;line-height:1.5;color:var(--ink-soft)}
+.howto li+li{border-top:1px solid rgba(217,205,176,.9);margin-top:3px;padding-top:10px}
+.howto li:last-child{padding-bottom:0}
+.howto li::before{
+  counter-increment:step;content:counter(step);
+  position:absolute;left:0;top:0;width:23px;height:23px;border-radius:50%;
+  background:linear-gradient(180deg,#f7793f,#e75f22);color:#fff;
+  font:400 13px/23px var(--font-title);text-align:center;box-shadow:0 2px 0 rgba(43,53,80,.35);
+}
+.howto b{display:block;font-size:14.5px;color:var(--ink);margin-bottom:2px}
+.howto span{display:block;font-size:12.5px;color:#7d7466;line-height:1.55;word-break:keep-all}
 .primary.big{
-  padding:16px;font-size:19px;letter-spacing:.02em;
+  padding:16px;font-size:20px;letter-spacing:.03em;
   background:linear-gradient(180deg,#f7793f,#e75f22);
-  box-shadow:4px 4px 0 #2b3550, 0 0 0 3px rgba(246,196,68,.45);
+  box-shadow:0 5px 0 #2b3550, 0 0 0 3px rgba(246,196,68,.45);
 }
