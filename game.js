@@ -359,6 +359,7 @@
     bhp: [], durLv: 1, dmgLv: 1, durUp: 0, dmgUp: 0, wallBreak: 0,
     stage: 1, bestStage: 1, stageClears: 0,
     tipT: 0, tipShown: false,
+    stEarn: 0, stSpend: 0, stUpg: 0, stBuy: 0, stWaveGold: 0,
   };
 
   /** 결정론 진단용 상태 해시 */
@@ -467,6 +468,7 @@
     S.redraw = .3; S.flash = 0; S.shake = 0; S.gridVer = 0; S.hintCache = null;
     S.jamT = 0; S.rerollCount = 0;
     S.gold = CFG.goldStart; S.shop = [false, false, false];
+    S.stEarn = 0; S.stSpend = 0; S.stUpg = 0; S.stBuy = 0; S.stWaveGold = 0;
     S.grantT = CFG.goldGrantSec; S.goldPulse = 0; S.bought = 0;
     S.durLv = 1; S.dmgLv = 1; S.durUp = 0; S.dmgUp = 0; S.wallBreak = 0;
     S.stage = 1; S.bestStage = 1; S.stageClears = 0;
@@ -496,6 +498,10 @@
     S.pieces[i] = forced || drawPieces(1)[0];
     S.shop[i] = true;
   }
+  // 계측(시뮬레이션 분석용) — RNG 미사용이라 결정론에 영향 없음
+  function gainGold(n) { S.gold += n; S.stEarn += n; }
+  function spendGold(n) { S.gold -= n; S.stSpend += n; }
+
   function canAfford(i) { return !S.shop[i] || S.gold >= priceOf(S.pieces[i]); }
   // ── 업그레이드(골드) ────────────────────────────────
   function duraCost() { return CFG.duraCost0 + (S.durLv - 1) * CFG.duraCostStep; }
@@ -504,7 +510,7 @@
     if (S.durLv >= CFG.duraMaxLv) return false;
     const cost = duraCost();
     if (S.gold < cost) { S.flash = .18; S.goldPulse = -1; return false; }
-    S.gold -= cost; S.durLv++; S.durUp++; S.goldPulse = 1;
+    spendGold(cost); S.durLv++; S.durUp++; S.stUpg++; S.goldPulse = 1;
     for (let r = 0; r < CFG.ROWS; r++) for (let c = 0; c < CFG.COLS; c++)
       if (S.grid[r][c] === BLOCK) S.bhp[r][c] = Math.min(S.durLv, (S.bhp[r][c] || 1) + 1);  // 기존 벽 보강
     S.banner = 1.0; S.bannerSub = '보강 Lv' + S.durLv;
@@ -515,7 +521,7 @@
     if (S.dmgLv >= CFG.dmgMaxLv) return false;
     const cost = dmgCost();
     if (S.gold < cost) { S.flash = .18; S.goldPulse = -1; return false; }
-    S.gold -= cost; S.dmgLv++; S.dmgUp++; S.goldPulse = 1;
+    spendGold(cost); S.dmgLv++; S.dmgUp++; S.stUpg++; S.goldPulse = 1;
     S.banner = 1.0; S.bannerSub = '대포 Lv' + S.dmgLv;
     if (S.phase === 'stageclear') refreshStageUI();
     return true;
@@ -525,7 +531,7 @@
     if (!S.shop[i]) return true;
     const cost = priceOf(S.pieces[i]);
     if (S.gold < cost) { S.flash = .18; S.goldPulse = -1; return false; }
-    S.gold -= cost; S.shop[i] = false; S.goldPulse = 1; S.bought++;
+    spendGold(cost); S.shop[i] = false; S.stBuy++; S.goldPulse = 1; S.bought++;
     return true;
   }
 
@@ -536,7 +542,7 @@
     S.stageClears++;
     S.bestStage = Math.max(S.bestStage, S.stage);
     S.hp = Math.min(CFG.hpMax, S.hp + CFG.stageClearHp);   // 보상: 성 HP 회복
-    S.gold += 10 + S.stage * 5;                            // 보상: 골드
+    gainGold(10 + S.stage * 5);                            // 보상: 골드
     S.goldPulse = 1;
     refreshStageUI();
     show(UI.stageScreen, true);
@@ -772,7 +778,7 @@
     // 줄 위 적 전멸
     S.enemies = S.enemies.filter(e => {
       const onRow = rows.includes(Math.round(e.y)), onCol = cols.includes(Math.round(e.x));
-      if (onRow || onCol) { hit++; S.kills++; S.score += CFG.scoreKill * 2; S.gold += CFG.goldLineKill; addFx('kill', e.x, e.y); return false; }
+      if (onRow || onCol) { hit++; S.kills++; S.score += CFG.scoreKill * 2; gainGold(CFG.goldLineKill); addFx('kill', e.x, e.y); return false; }
       return true;
     });
     const lines = rows.length + cols.length;
@@ -923,7 +929,7 @@
           tgt.hp -= (b.dmg || 1);      // v0.5: 석궁 공격력 업그레이드 반영
           addFx('hit', tgt.x, tgt.y);
           if (tgt.hp <= 0) {
-            tgt.dead = true; S.kills++; S.score += CFG.scoreKill; S.gold += CFG.goldKill;
+            tgt.dead = true; S.kills++; S.score += CFG.scoreKill; gainGold(CFG.goldKill);
             addFx('kill', tgt.x, tgt.y); S.shake = Math.max(S.shake, 3);
           }
         }
@@ -977,7 +983,7 @@
     // 웨이브 진행
     if (S.waveTime >= CFG.waveSeconds && S.wave <= CFG.wavesPerStage) {
       S.waveTime = 0; S.wave++;
-      S.gold += CFG.goldWave; S.goldPulse = 1;   // 웨이브 클리어 보너스
+      gainGold(CFG.goldWave); S.goldPulse = 1; S.stWaveGold += CFG.goldWave;
       if (!S.waveDmg) { S.noDmgStreak++; S.bestStreak = Math.max(S.bestStreak, S.noDmgStreak); }
       S.waveDmg = false;
       if (S.wave > CFG.wavesPerStage) { stageClear(); return; }   // 10웨이브 = 1스테이지 클리어
@@ -2225,6 +2231,10 @@
     gold: () => S.gold,
     durLv: () => S.durLv,
     stage: () => S.stage,
+    stats: () => ({ earn: S.stEarn, spend: S.stSpend, upg: S.stUpg, buy: S.stBuy,
+                    waveGold: S.stWaveGold, gold: S.gold, bought: S.bought,
+                    durLv: S.durLv, dmgLv: S.dmgLv, kills: S.kills, wallBreak: S.wallBreak,
+                    stage: S.stage, wave: S.wave, hp: S.hp, score: S.score, runTime: S.runTime }),
     tipT: () => S.tipT,
     tipShown: () => S.tipShown,
     setTip: (v) => { S.tipT = v; if (v > 0) showTip(); else hideTip(); },
