@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>미궁 방어대 — 프로토타입 (HD32 · v0.6)</title>
+<title>미궁 방어대 — 프로토타입 (HD32 · v0.6.2)</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,16 +12,21 @@
 
   <!-- ===== 시작 화면 ===== -->
   <section class="overlay on" id="startScreen">
-    <div class="card">
-      <p class="kicker">LABYRINTH DEFENSE</p>
-      <h1>미궁 방어대</h1>
-      <p class="desc">테트로미노 조각으로 <b>미로</b>를 깔아<br>적이 성에 닿기까지의 <b>경로를 꼬아라!</b></p>
+    <div class="card title-card">
+      <p class="kicker">LABYRINTH DEFENSE · HD32</p>
+      <h1 class="game-title">미궁 방어대</h1>
+      <p class="tagline">테트로미노로 <b>미로</b>를 깔아 적의 길을 끊어라</p>
+      <div class="title-stats">
+        <div><span>스테이지</span><strong>10 웨이브</strong></div>
+        <div><span>성 HP</span><strong>5</strong></div>
+        <div><span>최고 기록</span><strong id="bestRecord">—</strong></div>
+      </div>
       <div class="legend">
         <div><span class="lg lg-floor"></span> 바닥</div>
-        <div><span class="lg lg-wall"></span> 벽(조각)</div>
+        <div><span class="lg lg-wall"></span> 벽(내구도)</div>
         <div><span class="lg lg-hole"></span> 적 스폰</div>
         <div><span class="lg lg-castle"></span> 성</div>
-        <div><span class="lg lg-ballista"></span> 석궁</div>
+        <div><span class="lg lg-ballista"></span> 대포</div>
         <div><span class="lg lg-path"></span> 적 경로</div>
       </div>
       <ul class="rules">
@@ -34,8 +39,8 @@
       <label class="name-row">닉네임
         <input id="nameInput" type="text" maxlength="12" placeholder="자동 생성" autocomplete="off">
       </label>
-      <button class="primary" id="startButton">방어 시작</button>
-      <p class="seed-note">시드 고정 · 전원 동일 조건 (프로토타입 v0.6)</p>
+      <button class="primary big" id="startButton">방어 시작</button>
+      <p class="seed-note">시드 고정 · 전원 동일 조건 (프로토타입 v0.6.2)</p>
     </div>
   </section>
 
@@ -85,6 +90,6 @@
   <footer class="hint" id="hintBar">드래그 = 배치 · 탭 = 회전 · 하단 칩 = 업그레이드</footer>
 </div>
 
-<script src="game.js?v=20261014-6"></script>
+<script src="game.js?v=20261015-62"></script>
 </body>
 </html>

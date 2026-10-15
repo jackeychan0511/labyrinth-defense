@@ -106,6 +106,7 @@
     result: document.getElementById('resultScreen'),
     startBtn: document.getElementById('startButton'),
     nameInput: document.getElementById('nameInput'),
+    bestRecord: document.getElementById('bestRecord'),
     resultTitle: document.getElementById('resultTitle'),
     rScore: document.getElementById('resultScore'),
     rWave: document.getElementById('resultWave'),
@@ -570,6 +571,11 @@
     const streakBonus = S.bestStreak * CFG.scoreNoDamage;
     S.score += waveScore + hpBonus + streakBonus;
     UI.rScore.textContent = S.score.toLocaleString();
+    const bPrev = bestLoad();
+    if (!bPrev.score || S.score > bPrev.score) {
+      bestSave({ score: S.score, stage: S.stage, clears: S.stageClears });
+    }
+    refreshBest();
     UI.rWave.textContent = ((S.stage - 1) * CFG.wavesPerStage + Math.max(0, S.wave - 1)) + ' / 스테이지당 ' + CFG.wavesPerStage;
     UI.rStage.textContent = 'STAGE ' + S.stage + ' (클리어 ' + S.stageClears + '회)';
     UI.rHp.textContent = S.hp + ' / ' + CFG.hpMax;
@@ -579,6 +585,19 @@
     UI.restart.classList.add('hidden');
     show(UI.result, true);
     refreshGateStat();
+  }
+
+  // 최고 기록(로컬 저장)
+  const BEST_KEY = 'ld_best_v1';
+  function bestLoad() { try { return JSON.parse(localStorage.getItem(BEST_KEY) || '{}'); } catch (e) { return {}; } }
+  function bestSave(o) { try { localStorage.setItem(BEST_KEY, JSON.stringify(o)); } catch (e) { } }
+  /** 시작 화면의 최고 기록 표시를 갱신 */
+  function refreshBest() {
+    if (!UI.bestRecord) return;
+    const b = bestLoad();
+    UI.bestRecord.textContent = b.score
+      ? (Number(b.score).toLocaleString() + ' · S' + (b.stage || 1))
+      : '—';
   }
 
   // 게이트 G1 기록
@@ -2244,5 +2263,6 @@
   S.grid = newGrid(); computeDist();
   S.pieces = drawPieces(3);
   refreshGateStat();
+  refreshBest();
   requestAnimationFrame(frame);
 })();
