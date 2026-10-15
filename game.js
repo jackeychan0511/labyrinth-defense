@@ -37,6 +37,7 @@
     stageSpawnStep: 0.05,                 // 스테이지마다 스폰 간격 -5% (하한 0.45배)
     stageHpEvery: 2,                      // 2스테이지마다 적 HP +1
     stageClearHp: 1,                      // 스테이지 클리어 시 성 HP +1(최대까지)
+    tipSeconds: 4.5,                      // 보드 안내 툴팁 표시 시간(초)
     atkEvery: 0.85,                       // 적이 벽을 때리는 간격(초)
     atkDmg: 1,                            // 적 1회 타격 데미지
     duraMaxLv: 5, duraCost0: 15, duraCostStep: 10,   // 벽 내구도 업그레이드
@@ -107,6 +108,7 @@
     startBtn: document.getElementById('startButton'),
     nameInput: document.getElementById('nameInput'),
     bestRecord: document.getElementById('bestRecord'),
+    boardTip: document.getElementById('boardTip'),
     resultTitle: document.getElementById('resultTitle'),
     rScore: document.getElementById('resultScore'),
     rWave: document.getElementById('resultWave'),
@@ -356,6 +358,7 @@
     gold: 0, shop: [false, false, false], grantT: 0, goldPulse: 0, bought: 0,
     bhp: [], durLv: 1, dmgLv: 1, durUp: 0, dmgUp: 0, wallBreak: 0,
     stage: 1, bestStage: 1, stageClears: 0,
+    tipT: 0, tipShown: false,
   };
 
   /** 결정론 진단용 상태 해시 */
@@ -467,6 +470,7 @@
     S.grantT = CFG.goldGrantSec; S.goldPulse = 0; S.bought = 0;
     S.durLv = 1; S.dmgLv = 1; S.durUp = 0; S.dmgUp = 0; S.wallBreak = 0;
     S.stage = 1; S.bestStage = 1; S.stageClears = 0;
+    S.tipT = 0; S.tipShown = false; hideTip();
     S.banner = 1.6; S.bannerSub = 'GO!';
     S.gateAnswer = null;
     S.phase = 'playing';
@@ -528,6 +532,7 @@
   // ── 스테이지 진행(10웨이브 = 1스테이지) ──────────────
   function stageClear() {
     S.phase = 'stageclear';
+    hideTip();
     S.stageClears++;
     S.bestStage = Math.max(S.bestStage, S.stage);
     S.hp = Math.min(CFG.hpMax, S.hp + CFG.stageClearHp);   // 보상: 성 HP 회복
@@ -544,6 +549,7 @@
     S.enemies = []; S.bolts = []; S.fx = [];
     S.waveDmg = false;
     S.banner = 1.5; S.bannerSub = 'STAGE ' + S.stage;
+    S.tipT = 0; hideTip();
     S.phase = 'playing';
     computeDist();
     show(UI.stageScreen, false);
@@ -564,6 +570,13 @@
     UI.upDura.disabled = !uOk || S.gold < duraCost();
   }
 
+  // ── 보드 안내 툴팁 (첫 웨이브 1회 · 최대 3판까지) ──────
+  const TIP_KEY = 'ld_tip_v1';
+  function tipSeen() { try { return Number(localStorage.getItem(TIP_KEY) || 0) || 0; } catch (e) { return 0; } }
+  function tipSeenAdd() { try { localStorage.setItem(TIP_KEY, String(tipSeen() + 1)); } catch (e) { } }
+  function showTip() { if (UI.boardTip) UI.boardTip.classList.add('on'); }
+  function hideTip() { if (UI.boardTip) UI.boardTip.classList.remove('on'); }
+
   function endRun(reason) {
     S.phase = 'result';
     const waveScore = (S.wave - 1) * CFG.scoreWave;
@@ -583,6 +596,7 @@
     UI.resultTitle.textContent = reason === 'time' ? '시간 종료' : '성이 함락됐다';
     UI.gateBox.classList.remove('hidden');
     UI.restart.classList.add('hidden');
+    hideTip();
     show(UI.result, true);
     refreshGateStat();
   }
@@ -950,6 +964,15 @@
     moveEnemies(dt); fireBallistae(dt); moveBolts(dt);
     for (const f of S.fx) f.t += dt;
     S.fx = S.fx.filter(f => f.t < f.dur);
+
+    // 보드 안내 툴팁 — 첫 웨이브에서 1회
+    if (S.tipT > 0) {
+      S.tipT = Math.max(0, S.tipT - dt);
+      if (S.tipT === 0) hideTip();
+    } else if (!S.tipShown && S.stage === 1 && S.wave === 1 && S.runTime > 0.25) {
+      S.tipShown = true;
+      if (tipSeen() < 3) { S.tipT = CFG.tipSeconds; tipSeenAdd(); showTip(); }
+    }
 
     // 웨이브 진행
     if (S.waveTime >= CFG.waveSeconds && S.wave <= CFG.wavesPerStage) {
@@ -2144,6 +2167,7 @@
       try { out.setPointerCapture(ev.pointerId); } catch (e) { /* 무시 */ }
     }
     const [lx, ly] = toLogical(ev);
+    if (S.tipT > 0) { S.tipT = 0; hideTip(); }   // 안내는 첫 조작에서 닫힘
     if (upgradeAt(lx, ly)) { DRAG.tapped = true; return; }   // 하단 업그레이드 칩
     arm(lx, ly);
     if (!DRAG.armed) { onTap(lx, ly); DRAG.tapped = true; }
@@ -2201,6 +2225,9 @@
     gold: () => S.gold,
     durLv: () => S.durLv,
     stage: () => S.stage,
+    tipT: () => S.tipT,
+    tipShown: () => S.tipShown,
+    setTip: (v) => { S.tipT = v; if (v > 0) showTip(); else hideTip(); },
     stageClears: () => S.stageClears,
     nextStage: () => { nextStage(); return S.stage; },
     setWave: (n) => { S.wave = n; },

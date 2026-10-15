@@ -7,11 +7,23 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gothic+A1:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261015-8">
+<link rel="stylesheet" href="styles.css?v=20261015-9">
 </head>
 <body>
 <div class="phone-shell">
   <canvas id="game" width="720" height="1280" aria-label="미궁 방어대 게임 화면"></canvas>
+
+  <!-- ===== 보드 안내 툴팁 (첫 웨이브 1회) ===== -->
+  <div class="board-tip" id="boardTip" aria-hidden="true">
+    <p class="tip-title">보드 안내</p>
+    <ul>
+      <li><i style="background:#a3e070"></i>바닥 — 조각을 놓는 칸</li>
+      <li><i style="background:#b06be8"></i>적 스폰 — 적이 나오는 구멍</li>
+      <li><i style="background:#f4cf78"></i>성 — 지켜야 하는 곳</li>
+      <li><i style="background:#ad7333"></i>대포 — 지나는 적을 자동 공격</li>
+    </ul>
+    <p class="tip-foot">화면을 탭하면 닫혀요</p>
+  </div>
 
   <!-- ===== 시작 화면 (v0.7 리뉴얼 2차: 범례 제거 · 게임 방법 · 폰트) ===== -->
   <section class="overlay on" id="startScreen">
@@ -86,6 +98,6 @@
   <footer class="hint" id="hintBar">드래그 = 배치 · 탭 = 회전 · 하단 칩 = 업그레이드</footer>
 </div>
 
-<script src="game.js?v=20261015-8"></script>
+<script src="game.js?v=20261015-9"></script>
 </body>
 </html>
