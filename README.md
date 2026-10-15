@@ -7,9 +7,7 @@
 
 폰·PC 브라우저에서 아래 주소를 열면 됩니다. (세로 화면)
 
-```
-https://<깃허브ID>.github.io/<저장소>/
-```
+### ▶ https://jackeychan0511.github.io/labyrinth-defense/
 
 ## 조작
 
