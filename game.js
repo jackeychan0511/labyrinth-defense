@@ -52,7 +52,11 @@
     sealBonus: 6,                          // 구멍 1개 봉쇄 시 즉시 보너스 골드
     sealTrickle: 1, sealTrickleSec: 2,     // 봉쇄 유지: 2초마다 구멍당 +1 골드
     wallZoneRows: 2,                       // 맨 아래 2줄 = 성곽 구역(성 옆·최하단)
-    wallBonus: 1,                          // 성곽 구역에 지은 벽은 내구도 +1
+    wallBonus: 1,                          // 성곽 구역 벽: 내구도 +1
+    wallBonusCore: 2,                      // 성 바로 인접 칸 벽: 내구도 +2
+    perkWallPushCost: 60,                  // 특수효과 '성곽 반격' 가격(1회 구매)
+    wallPushRadius: 1.8, wallPushCells: 2, wallPushStun: 0.5,   // 반격: 반경 내 적을 2칸 밀고 0.5초 경직
+    siegeWallCount: 6, siegeAtkMul: 0.7,   // 공성: 성곽 벽 6개 이상이면 적이 성벽을 직접 공격(타격 주기 0.7배)
   };
   const HOLE = -2, BLOCK = 1, FLOOR = 0, CASTLE = 9, BALLISTA = 8, HOLE_C = 7;
 
@@ -121,6 +125,7 @@
     bestRecord: document.getElementById('bestRecord'),
     boardTip: document.getElementById('boardTip'),
     stageNote: document.getElementById('stageNote'),
+    buyPerk: document.getElementById('buyPerk'),
     resultTitle: document.getElementById('resultTitle'),
     rScore: document.getElementById('resultScore'),
     rWave: document.getElementById('resultWave'),
@@ -371,6 +376,7 @@
     bhp: [], durLv: 1, dmgLv: 1, durUp: 0, dmgUp: 0, wallBreak: 0,
     stage: 1, bestStage: 1, stageClears: 0,
     bossHold: 0, sealedPrev: 0, sealT: 0,
+    perkWallPush: false, siege: false,
     tipT: 0, tipShown: false,
     stEarn: 0, stSpend: 0, stUpg: 0, stBuy: 0, stWaveGold: 0,
   };
@@ -401,6 +407,17 @@
   const isFree = (c, r) => c >= 0 && c < CFG.COLS && r >= 0 && r < CFG.ROWS && S.grid[r][c] === FLOOR;
   /** 성곽 구역(맨 아래 wallZoneRows 줄) — 성 옆·최하단에 지으면 내구도 보너스 */
   const inWallZone = (r) => r >= CFG.ROWS - CFG.wallZoneRows;
+  /** 성 바로 옆(직교 인접) 칸인가 */
+  function isCastleAdj(c, r) {
+    for (const [cc, rr] of CASTLE_CELL) if (Math.abs(cc - c) + Math.abs(rr - r) === 1) return true;
+    return false;
+  }
+  /** 구역별 내구도 보너스: 성 인접 +2 / 성곽 구역 +1 / 그 외 0 */
+  function wallZoneBonus(c, r) {
+    if (isCastleAdj(c, r)) return CFG.wallBonusCore;
+    if (inWallZone(r)) return CFG.wallBonus;
+    return 0;
+  }
   const isBlocked = (c, r) => c < 0 || c >= CFG.COLS || r < 0 || r >= CFG.ROWS ||
     S.grid[r][c] === BLOCK || S.grid[r][c] === CASTLE || S.grid[r][c] === BALLISTA;
 
@@ -488,6 +505,7 @@
     S.durLv = 1; S.dmgLv = 1; S.durUp = 0; S.dmgUp = 0; S.wallBreak = 0;
     S.stage = 1; S.bestStage = 1; S.stageClears = 0;
     S.bossHold = 0; S.sealedPrev = 0; S.sealT = 0;
+    S.perkWallPush = false; S.siege = false;
     S.tipT = 0; S.tipShown = false; hideTip();
     S.banner = 1.6; S.bannerSub = 'GO!';
     S.gateAnswer = null;
@@ -530,7 +548,7 @@
     spendGold(cost); S.durLv++; S.durUp++; S.stUpg++; S.goldPulse = 1;
     for (let r = 0; r < CFG.ROWS; r++) for (let c = 0; c < CFG.COLS; c++)
       if (S.grid[r][c] === BLOCK) {
-        const cap = S.durLv + (inWallZone(r) ? CFG.wallBonus : 0);   // 성곽 구역은 상한도 +보너스
+        const cap = S.durLv + wallZoneBonus(c, r);                   // 구역 보너스는 상한에도 반영
         S.bhp[r][c] = Math.min(cap, (S.bhp[r][c] || 1) + 1);         // 기존 벽 보강
       }
     S.banner = 1.0; S.bannerSub = '보강 Lv' + S.durLv;
@@ -545,6 +563,43 @@
     S.banner = 1.0; S.bannerSub = '대포 Lv' + S.dmgLv;
     if (S.phase === 'stageclear') refreshStageUI();
     return true;
+  }
+
+  /** 특수효과 '성곽 반격' 구매(1회) */
+  function buyPerkWallPush() {
+    if (S.perkWallPush) return false;
+    if (S.gold < CFG.perkWallPushCost) { S.flash = .18; S.goldPulse = -1; return false; }
+    spendGold(CFG.perkWallPushCost); S.perkWallPush = true; S.goldPulse = 1;
+    S.banner = 1.3; S.bannerSub = '특수효과: 성곽 반격';
+    if (S.phase === 'stageclear') refreshStageUI();
+    return true;
+  }
+  /** 성곽 벽이 부서질 때 주변 적을 성 밖으로 밀어낸다 */
+  function pushEnemies(c, r) {
+    let n = 0;
+    for (const e of S.enemies) {
+      if (Math.abs(e.x - c) > CFG.wallPushRadius || Math.abs(e.y - r) > CFG.wallPushRadius) continue;
+      let cur = [Math.round(e.x), Math.round(e.y)];
+      for (let i = 0; i < CFG.wallPushCells; i++) {
+        const row = S.dist[cur[1]];
+        let bd = row ? row[cur[0]] : -1, best = null;
+        for (const [nc, nr] of [[cur[0] + 1, cur[1]], [cur[0] - 1, cur[1]], [cur[0], cur[1] + 1], [cur[0], cur[1] - 1]]) {
+          if (nc < 0 || nc >= CFG.COLS || nr < 0 || nr >= CFG.ROWS) continue;
+          const d = S.dist[nr][nc];
+          if (d > bd) { bd = d; best = [nc, nr]; }
+        }
+        if (!best) break;
+        cur = best;
+      }
+      e.x = cur[0]; e.y = cur[1]; e.tx = undefined; e.stun = CFG.wallPushStun;
+      addFx('deny', cur[0], cur[1]);
+      n++;
+    }
+    if (n) {
+      S.shake = Math.max(S.shake, 4);
+      S.banner = 1.1; S.bannerSub = '성곽 반격! ' + n + '기';
+    }
+    return n;
   }
 
   function buySlot(i) {
@@ -586,6 +641,13 @@
     UI.stageTitle.textContent = 'STAGE ' + S.stage + ' 클리어!';
     UI.stageGold.textContent = String(S.gold);
     const dOk = S.dmgLv < CFG.dmgMaxLv, uOk = S.durLv < CFG.duraMaxLv;
+    if (UI.buyPerk) {
+      const owned = S.perkWallPush;
+      UI.buyPerk.textContent = owned ? '성곽 반격 — 보유 중'
+        : '특수효과: 성곽 반격 (' + CFG.perkWallPushCost + 'G)';
+      UI.buyPerk.disabled = owned || S.gold < CFG.perkWallPushCost;
+      UI.buyPerk.classList.toggle('owned', owned);
+    }
     UI.upCannon.textContent = dOk
       ? '대포 공격력 Lv' + S.dmgLv + ' → ' + (S.dmgLv + 1) + '  (' + dmgCost() + 'G)'
       : '대포 공격력 MAX (Lv' + S.dmgLv + ')';
@@ -689,21 +751,21 @@
     // 격자 안으로 보정(가운데 정렬감)
     if (!canPlaceAt(cells, c0, r0)) return false;
     // v0.5: 길을 막아도 배치 가능 — 막히면 적이 벽을 부수고 뚫는다
-    let zoneCells = 0;
+    let zoneBonusMax = 0;
     cells.forEach(([dc, dr]) => {
       const c = c0 + dc, r = r0 + dr;
       S.grid[r][c] = BLOCK;
-      // 이 시점 내구도 Lv 가 HP · 성곽 구역은 +보너스
-      S.bhp[r][c] = S.durLv + (inWallZone(r) ? CFG.wallBonus : 0);
-      if (inWallZone(r)) zoneCells++;
+      const zb = wallZoneBonus(c, r);              // 성 인접 +2 / 성곽 +1
+      S.bhp[r][c] = S.durLv + zb;                  // 이 시점 내구도 Lv 가 HP
+      if (zb > zoneBonusMax) zoneBonusMax = zb;
     });
     computeDist();
     S.gridVer++; S.hintCache = null;
     S.redraw = CFG.blockRedrawMs / 1000;
     addFx('place', c0, r0);
-    if (zoneCells) {                       // 성곽 구역 건설 알림
-      S.banner = 1.15; S.bannerSub = '성벽! 내구도 +' + CFG.wallBonus;
-      S.goldPulse = 0; S.shake = Math.max(S.shake, 1.8);
+    if (zoneBonusMax) {                    // 성곽 구역 건설 알림(최대 보너스 표기)
+      S.banner = 1.15; S.bannerSub = (zoneBonusMax >= CFG.wallBonusCore ? '성벽(핵심)! 내구도 +' : '성벽! 내구도 +') + zoneBonusMax;
+      S.shake = Math.max(S.shake, 1.8);
     }
     // 사용한 슬롯은 다시 판매 중 → 골드로 재구매
     offerSlot(S.sel);
@@ -844,6 +906,71 @@
 
   function isBossStage() { return S.stage % CFG.bossEvery === 0; }
   function hasBoss() { return S.enemies.some(e => e.boss); }
+  /** 성곽 구역 벽 개수 */
+  function zoneBlockCount() {
+    let n = 0;
+    for (let r = CFG.ROWS - CFG.wallZoneRows; r < CFG.ROWS; r++)
+      for (let c = 0; c < CFG.COLS; c++) if (S.grid[r][c] === BLOCK) n++;
+    return n;
+  }
+  /** 성곽을 두르면 적이 공성 모드로 전환(성벽을 직접 부순다) */
+  function updateSiege() {
+    const want = zoneBlockCount() >= CFG.siegeWallCount;
+    if (want !== S.siege) {
+      S.siege = want;
+      if (want) { S.banner = 1.8; S.bannerSub = '적 공성 시작!'; S.shake = Math.max(S.shake, 5); }
+    }
+  }
+  function nearestZoneWall(x, y) {
+    let best = null, bd = 1e9;
+    for (let r = CFG.ROWS - CFG.wallZoneRows; r < CFG.ROWS; r++)
+      for (let c = 0; c < CFG.COLS; c++) {
+        if (S.grid[r][c] !== BLOCK) continue;
+        const d = dist2(x, y, c, r);
+        if (d < bd) { bd = d; best = [c, r]; }
+      }
+    return best;
+  }
+  /** 공성 이동 — 성벽으로 접근해 부순다(경로 무시) */
+  function moveSiege(e, dt) {
+    const tgt = nearestZoneWall(e.x, e.y);
+    if (!tgt) return false;
+    const [wc, wr] = tgt, dx = wc - e.x, dy = wr - e.y;
+    const hitCd = (mul) => { e.atkCd = (e.atkCd === undefined ? 0 : e.atkCd) - dt; return e.atkCd <= 0; };
+    if (Math.abs(dx) <= 1.15 && Math.abs(dy) <= 1.15) {          // 성벽에 닿음 → 타격
+      if (hitCd()) { e.atkCd = CFG.atkEvery * CFG.siegeAtkMul; hitBlock(wc, wr, e.boss ? CFG.bossWallDmg : CFG.atkDmg); }
+      e.atkAnim = .28; e.tx = undefined;
+      return true;
+    }
+    const sx = Math.sign(dx), sy = Math.sign(dy), pc = Math.round(e.x), pr = Math.round(e.y);
+    const cand = [];
+    if (Math.abs(dx) > .35) cand.push([pc + sx, pr]);
+    if (Math.abs(dy) > .35) cand.push([pc, pr + sy]);
+    cand.push([pc + sx, pr + sy]);
+    for (const [cc, rr] of cand) {
+      if (cc < 0 || cc >= CFG.COLS || rr < 0 || rr >= CFG.ROWS) continue;
+      const v = S.grid[rr][cc];
+      if (v === BLOCK) {                                          // 앞을 막은 벽 → 부순다
+        if (hitCd()) { e.atkCd = CFG.atkEvery * CFG.siegeAtkMul; hitBlock(cc, rr, e.boss ? CFG.bossWallDmg : CFG.atkDmg); }
+        e.atkAnim = .28; e.tx = undefined;
+        return true;
+      }
+      if (v === CASTLE) {                                         // 성벽을 뚫고 성에 도달
+        e.dead = true; S.hp -= e.boss ? CFG.bossCastleDmg : 1;
+        S.shake = e.boss ? 11 : 6; S.flash = e.boss ? .34 : .22;
+        S.waveDmg = true; S.noDmgStreak = 0;
+        return true;
+      }
+      if (v === FLOOR || v === HOLE_C) {                           // 이동
+        const mvx = cc - e.x, mvy = rr - e.y, len = Math.hypot(mvx, mvy) || 1;
+        const sp = Math.min(e.spd * dt, len);
+        e.x += mvx / len * sp; e.y += mvy / len * sp;
+        e.tx = undefined;
+        return true;
+      }
+    }
+    return true;                                                   // 갈 곳 없음
+  }
   /** 경로가 끊긴(막힌) 구멍 개수 */
   function sealedCount() { return HOLES.filter(([c, r]) => S.dist[r][c] < 0).length; }
   /** 보스 등장 — 마지막 웨이브, 보스 스테이지에서 1기 */
@@ -877,6 +1004,8 @@
     for (const e of S.enemies) {
       e.t += dt;
       if (e.atkAnim > 0) e.atkAnim = Math.max(0, e.atkAnim - dt);
+      if (e.stun > 0) { e.stun = Math.max(0, e.stun - dt); if (S.hp <= 0) break; continue; }
+      if (S.siege && moveSiege(e, dt)) { if (S.hp <= 0) break; continue; }
       let step = e.spd * dt;
       let guard = 0;
       // 2026-10-14 수정: 기존 로직은 '셀 중심 정렬창(0.02)'이 프레임당 이동량(spd/60)보다 커서
@@ -957,6 +1086,7 @@
       addFx('burst', c, r);
       S.shake = Math.max(S.shake, 2.6);
       S.wallBreak++;
+      if (S.perkWallPush && inWallZone(r)) pushEnemies(c, r);   // 특수효과: 성곽 반격
     }
     return true;
   }
@@ -1047,6 +1177,8 @@
       S.tipShown = true;
       if (tipSeen() < 3) { S.tipT = CFG.tipSeconds; tipSeenAdd(); showTip(); }
     }
+
+    updateSiege();                              // 성곽을 두르면 적이 공성 모드로
 
     // 봉쇄 보너스 — 구멍을 막으면 즉시 보너스, 유지하면 2초마다 소량 획득
     const scNow = sealedCount();
@@ -1957,6 +2089,7 @@
 
     const waveShown = Math.min(S.wave, CFG.wavesPerStage);
     text('STAGE ' + S.stage + '  WAVE ' + waveShown + '/' + CFG.wavesPerStage, 6, 6.5, '#fff8e0', 2);
+    if (S.siege) text('공성!', CFG.LW - 82, 6.5, '#ff9c6e', 1);   // 성곽 공성 경고
     text('SCORE ' + S.score, 6, 21, '#f7c64a', 1);
     // 골드 — 획득/지출 시 잠깐 강조
     const gx = 6 + textW('SCORE ' + S.score, 1) + 8;
@@ -2341,6 +2474,7 @@
   });
   UI.upCannon.addEventListener('click', () => { buyDamage(); refreshStageUI(); });
   UI.upDura.addEventListener('click', () => { buyDurability(); refreshStageUI(); });
+  if (UI.buyPerk) UI.buyPerk.addEventListener('click', () => { buyPerkWallPush(); refreshStageUI(); });
   UI.nextStage.addEventListener('click', () => nextStage());
   UI.gateYes.addEventListener('click', () => answerGate(true));
   UI.gateNo.addEventListener('click', () => answerGate(false));
@@ -2371,6 +2505,13 @@
     bossHold: () => S.bossHold,
     sealedNow: () => sealedCount(),
     inWallZone: (r) => inWallZone(r),
+    zoneBonus: (c, r) => wallZoneBonus(c, r),
+    perkOwned: () => S.perkWallPush,
+    buyPerk: () => buyPerkWallPush(),
+    zoneBlocks: () => zoneBlockCount(),
+    siege: () => S.siege,
+    forceSiege: (v) => { S.siege = v; },
+    pushEnemies: (c, r) => pushEnemies(c, r),
     wallZoneRows: () => CFG.wallZoneRows,
     wallBonus: () => CFG.wallBonus,
     bossHp: () => { const b = S.enemies.find(e => e.boss); return b ? b.hp : 0; },

@@ -189,3 +189,12 @@ button{font-family:var(--font-title);letter-spacing:.01em}
   box-shadow:inset 0 0 0 1.5px rgba(10,14,28,.5);
 }
 .board-tip .tip-foot{margin-top:6px;font-size:11.5px;color:rgba(255,224,138,.85);text-align:right}
+
+/* 특수효과 버튼(스테이지 클리어 상점) */
+.primary.perk{
+  background:linear-gradient(180deg,#a26be8,#7c41ad);
+  box-shadow:0 4px 0 #2b3550, 0 0 0 3px rgba(176,107,232,.35);
+}
+.primary.perk.owned{
+  background:linear-gradient(180deg,#8fa0bd,#6f7f9c);opacity:.85;
+}
