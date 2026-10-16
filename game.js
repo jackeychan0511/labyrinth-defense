@@ -48,6 +48,9 @@
     bossHpBase: 12, bossHpPerStage: 6,     // 보스 HP = 12 + (스테이지-1)*6
     bossCastleDmg: 2, bossWallDmg: 2,      // 보스가 성/벽에 주는 피해
     bossSpeedMul: 0.75, bossGold: 30, bossScore: 300,   // 보스는 느리고, 잡으면 큰 보상
+    bossHoldMax: 30,                       // 보스 미처치 시 도주까지 유예(초)
+    sealBonus: 6,                          // 구멍 1개 봉쇄 시 즉시 보너스 골드
+    sealTrickle: 1, sealTrickleSec: 2,     // 봉쇄 유지: 2초마다 구멍당 +1 골드
   };
   const HOLE = -2, BLOCK = 1, FLOOR = 0, CASTLE = 9, BALLISTA = 8, HOLE_C = 7;
 
@@ -365,6 +368,7 @@
     gold: 0, shop: [false, false, false], grantT: 0, goldPulse: 0, bought: 0,
     bhp: [], durLv: 1, dmgLv: 1, durUp: 0, dmgUp: 0, wallBreak: 0,
     stage: 1, bestStage: 1, stageClears: 0,
+    bossHold: 0, sealedPrev: 0, sealT: 0,
     tipT: 0, tipShown: false,
     stEarn: 0, stSpend: 0, stUpg: 0, stBuy: 0, stWaveGold: 0,
   };
@@ -479,6 +483,7 @@
     S.grantT = CFG.goldGrantSec; S.goldPulse = 0; S.bought = 0;
     S.durLv = 1; S.dmgLv = 1; S.durUp = 0; S.dmgUp = 0; S.wallBreak = 0;
     S.stage = 1; S.bestStage = 1; S.stageClears = 0;
+    S.bossHold = 0; S.sealedPrev = 0; S.sealT = 0;
     S.tipT = 0; S.tipShown = false; hideTip();
     S.banner = 1.6; S.bannerSub = 'GO!';
     S.gateAnswer = null;
@@ -823,6 +828,9 @@
   }
 
   function isBossStage() { return S.stage % CFG.bossEvery === 0; }
+  function hasBoss() { return S.enemies.some(e => e.boss); }
+  /** 경로가 끊긴(막힌) 구멍 개수 */
+  function sealedCount() { return HOLES.filter(([c, r]) => S.dist[r][c] < 0).length; }
   /** 보스 등장 — 마지막 웨이브, 보스 스테이지에서 1기 */
   function spawnBoss() {
     const h = HOLES[Math.floor(S.rnd() * HOLES.length)];
@@ -832,6 +840,7 @@
       x: h[0], y: h[1] + 0.15, hp: hp, hpMax: hp, tint: ENEMY_TINT.length - 1,
       spd: enemySpeed() * CFG.bossSpeedMul, t: 0, boss: true,
     });
+    S.bossHold = 0;
     S.banner = 1.8; S.bannerSub = 'BOSS 등장!';
     S.shake = Math.max(S.shake, 5); S.flash = Math.max(S.flash, .16);
   }
@@ -1024,15 +1033,40 @@
       if (tipSeen() < 3) { S.tipT = CFG.tipSeconds; tipSeenAdd(); showTip(); }
     }
 
-    // 웨이브 진행
+    // 봉쇄 보너스 — 구멍을 막으면 즉시 보너스, 유지하면 2초마다 소량 획득
+    const scNow = sealedCount();
+    if (scNow > S.sealedPrev) {
+      const gained = (scNow - S.sealedPrev) * CFG.sealBonus;
+      gainGold(gained); S.goldPulse = 1;
+      S.banner = 1.2; S.bannerSub = '봉쇄! +' + gained;
+      S.shake = Math.max(S.shake, 2.2);
+    }
+    S.sealedPrev = scNow;
+    if (scNow > 0) {
+      S.sealT += dt;
+      if (S.sealT >= CFG.sealTrickleSec) { S.sealT = 0; gainGold(scNow * CFG.sealTrickle); }
+    } else S.sealT = 0;
+
+    // 웨이브 진행 — 보스가 살아 있으면 스테이지가 끝나지 않는다
     if (S.waveTime >= CFG.waveSeconds && S.wave <= CFG.wavesPerStage) {
-      S.waveTime = 0; S.wave++;
-      gainGold(CFG.goldWave); S.goldPulse = 1; S.stWaveGold += CFG.goldWave;
-      if (!S.waveDmg) { S.noDmgStreak++; S.bestStreak = Math.max(S.bestStreak, S.noDmgStreak); }
-      S.waveDmg = false;
-      if (S.wave > CFG.wavesPerStage) { stageClear(); return; }   // 10웨이브 = 1스테이지 클리어
-      if (S.wave === CFG.bossWave && isBossStage()) { spawnBoss(); return; }
-      S.banner = 1.1; S.bannerSub = `WAVE ${S.wave}/${CFG.wavesPerStage}`;
+      const holding = hasBoss() && S.bossHold < CFG.bossHoldMax;
+      if (holding) {                                  // 보스 처치 대기(웨이브 고정)
+        S.bossHold += CFG.waveSeconds; S.waveTime = 0;
+        S.banner = 1.0; S.bannerSub = 'BOSS 처치 필요!';
+      } else {
+        if (hasBoss()) {                              // 유예 초과 → 보스 도주, 스테이지 종료 허용
+          S.enemies = S.enemies.filter(e => !e.boss);
+          S.bossHold = 0;
+          S.banner = 1.7; S.bannerSub = '보스 도주…';
+        }
+        S.waveTime = 0; S.wave++;
+        gainGold(CFG.goldWave); S.goldPulse = 1; S.stWaveGold += CFG.goldWave;
+        if (!S.waveDmg) { S.noDmgStreak++; S.bestStreak = Math.max(S.bestStreak, S.noDmgStreak); }
+        S.waveDmg = false;
+        if (S.wave > CFG.wavesPerStage) { stageClear(); return; }   // 10웨이브 = 1스테이지 클리어
+        if (S.wave === CFG.bossWave && isBossStage()) { spawnBoss(); return; }
+        S.banner = 1.1; S.bannerSub = `WAVE ${S.wave}/${CFG.wavesPerStage}`;
+      }
     }
     // 보급 — 살 수 있는 조각도, 소유한 조각도 없으면 주기적으로 무료 dot 1개
     const anyOwned = S.pieces.some((_, i) => !S.shop[i]);
@@ -2304,7 +2338,9 @@
                     waveGold: S.stWaveGold, gold: S.gold, bought: S.bought,
                     durLv: S.durLv, dmgLv: S.dmgLv, kills: S.kills, wallBreak: S.wallBreak,
                     stage: S.stage, wave: S.wave, hp: S.hp, score: S.score, runTime: S.runTime }),
-    bossAlive: () => S.enemies.some(e => e.boss),
+    bossAlive: () => hasBoss(),
+    bossHold: () => S.bossHold,
+    sealedNow: () => sealedCount(),
     bossHp: () => { const b = S.enemies.find(e => e.boss); return b ? b.hp : 0; },
     bossMaxHp: () => { const b = S.enemies.find(e => e.boss); return b ? b.hpMax : 0; },
     spawnBoss: () => { spawnBoss(); return true; },
@@ -2326,7 +2362,7 @@
     bhp: (c, r) => S.bhp[r][c],
     setBhp: (c, r, v) => { S.bhp[r][c] = v; },
     wallBreak: () => S.wallBreak,
-    sealedHoles: () => HOLES.filter(([c, r]) => S.dist[r][c] < 0).length,
+    sealedHoles: () => sealedCount(),
     setGold: (v) => { S.gold = v; },
     buy: (i) => buySlot(i),
     shop: () => S.pieces.map((p, i) => ({ offer: S.shop[i], id: p && p.id, price: S.shop[i] ? priceOf(p) : 0 })),
