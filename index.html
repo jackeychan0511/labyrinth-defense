@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>미궁 방어대 — 프로토타입 (HD32 · v0.8.1)</title>
+<title>미궁 방어대 — 프로토타입 (HD32 · v0.8.2)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gothic+A1:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261015-11">
+<link rel="stylesheet" href="styles.css?v=20261015-12">
 </head>
 <body>
 <div class="phone-shell">
@@ -21,6 +21,7 @@
       <li><i style="background:#b06be8"></i>적 스폰 — 적이 나오는 구멍</li>
       <li><i style="background:#f4cf78"></i>성 — 지켜야 하는 곳</li>
       <li><i style="background:#ad7333"></i>대포 — 지나는 적을 자동 공격</li>
+      <li><i style="background:#cfbd94"></i>성곽(맨 아래 2줄) — 지으면 내구도 +1</li>
     </ul>
     <p class="tip-foot">화면을 탭하면 닫혀요</p>
   </div>
@@ -39,7 +40,7 @@
       </div>
 
       <ol class="howto">
-        <li><b>드래그로 조각 배치</b><span>성 옆 칸에도 설치됩니다 · 탭 = 회전</span></li>
+        <li><b>드래그로 조각 배치</b><span><b>맨 아래 2줄(성 옆·최하단)은 성곽</b> — 지으면 내구도 +1 · 탭 = 회전</span></li>
         <li><b>막힌 적은 벽을 부순다</b><span>구멍을 막으면 <b>봉쇄 보너스 골드</b> · 벽 내구도·대포 공격력 강화</span></li>
         <li><b>10웨이브 = 스테이지 클리어</b><span>스테이지·강화 무한 · <b>보스는 반드시 잡아야 클리어</b></span></li>
       </ol>
@@ -48,7 +49,7 @@
         <input id="nameInput" type="text" maxlength="12" placeholder="자동 생성" autocomplete="off">
       </label>
       <button class="primary big" id="startButton">방어 시작</button>
-      <p class="seed-note">시드 고정 · 전원 동일 조건 · 프로토타입 v0.8.1</p>
+      <p class="seed-note">시드 고정 · 전원 동일 조건 · 프로토타입 v0.8.2</p>
     </div>
   </section>
 
@@ -98,6 +99,6 @@
   <footer class="hint" id="hintBar">드래그 = 배치 · 탭 = 회전 · 하단 칩 = 업그레이드</footer>
 </div>
 
-<script src="game.js?v=20261015-11"></script>
+<script src="game.js?v=20261015-12"></script>
 </body>
 </html>

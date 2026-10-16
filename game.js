@@ -51,6 +51,8 @@
     bossHoldMax: 30,                       // 보스 미처치 시 도주까지 유예(초)
     sealBonus: 6,                          // 구멍 1개 봉쇄 시 즉시 보너스 골드
     sealTrickle: 1, sealTrickleSec: 2,     // 봉쇄 유지: 2초마다 구멍당 +1 골드
+    wallZoneRows: 2,                       // 맨 아래 2줄 = 성곽 구역(성 옆·최하단)
+    wallBonus: 1,                          // 성곽 구역에 지은 벽은 내구도 +1
   };
   const HOLE = -2, BLOCK = 1, FLOOR = 0, CASTLE = 9, BALLISTA = 8, HOLE_C = 7;
 
@@ -397,6 +399,8 @@
     return g;
   }
   const isFree = (c, r) => c >= 0 && c < CFG.COLS && r >= 0 && r < CFG.ROWS && S.grid[r][c] === FLOOR;
+  /** 성곽 구역(맨 아래 wallZoneRows 줄) — 성 옆·최하단에 지으면 내구도 보너스 */
+  const inWallZone = (r) => r >= CFG.ROWS - CFG.wallZoneRows;
   const isBlocked = (c, r) => c < 0 || c >= CFG.COLS || r < 0 || r >= CFG.ROWS ||
     S.grid[r][c] === BLOCK || S.grid[r][c] === CASTLE || S.grid[r][c] === BALLISTA;
 
@@ -525,7 +529,10 @@
     if (S.gold < cost) { S.flash = .18; S.goldPulse = -1; return false; }
     spendGold(cost); S.durLv++; S.durUp++; S.stUpg++; S.goldPulse = 1;
     for (let r = 0; r < CFG.ROWS; r++) for (let c = 0; c < CFG.COLS; c++)
-      if (S.grid[r][c] === BLOCK) S.bhp[r][c] = Math.min(S.durLv, (S.bhp[r][c] || 1) + 1);  // 기존 벽 보강
+      if (S.grid[r][c] === BLOCK) {
+        const cap = S.durLv + (inWallZone(r) ? CFG.wallBonus : 0);   // 성곽 구역은 상한도 +보너스
+        S.bhp[r][c] = Math.min(cap, (S.bhp[r][c] || 1) + 1);         // 기존 벽 보강
+      }
     S.banner = 1.0; S.bannerSub = '보강 Lv' + S.durLv;
     if (S.phase === 'stageclear') refreshStageUI();
     return true;
@@ -682,14 +689,22 @@
     // 격자 안으로 보정(가운데 정렬감)
     if (!canPlaceAt(cells, c0, r0)) return false;
     // v0.5: 길을 막아도 배치 가능 — 막히면 적이 벽을 부수고 뚫는다
+    let zoneCells = 0;
     cells.forEach(([dc, dr]) => {
-      S.grid[r0 + dr][c0 + dc] = BLOCK;
-      S.bhp[r0 + dr][c0 + dc] = S.durLv;        // 이 시점 내구도 Lv 가 HP
+      const c = c0 + dc, r = r0 + dr;
+      S.grid[r][c] = BLOCK;
+      // 이 시점 내구도 Lv 가 HP · 성곽 구역은 +보너스
+      S.bhp[r][c] = S.durLv + (inWallZone(r) ? CFG.wallBonus : 0);
+      if (inWallZone(r)) zoneCells++;
     });
     computeDist();
     S.gridVer++; S.hintCache = null;
     S.redraw = CFG.blockRedrawMs / 1000;
     addFx('place', c0, r0);
+    if (zoneCells) {                       // 성곽 구역 건설 알림
+      S.banner = 1.15; S.bannerSub = '성벽! 내구도 +' + CFG.wallBonus;
+      S.goldPulse = 0; S.shake = Math.max(S.shake, 1.8);
+    }
     // 사용한 슬롯은 다시 판매 중 → 골드로 재구매
     offerSlot(S.sel);
     S.sel = 0; S.rot = 0;
@@ -1569,13 +1584,27 @@
   // 타일 — 유리·잔디 질감
   function drawTile(x, y, c, r, v) {
     const alt = (c + r) % 2 === 0;
-    const top = alt ? '#a9e578' : '#96d967';
-    const bot = alt ? '#8ccf5d' : '#7ec455';
+    const zone = r >= CFG.ROWS - CFG.wallZoneRows;      // 성곽 부지
+    const top = zone ? (alt ? '#d9c9a3' : '#cfbd94') : (alt ? '#a9e578' : '#96d967');
+    const bot = zone ? (alt ? '#bda87d' : '#b29c72') : (alt ? '#8ccf5d' : '#7ec455');
     fillRR(x + .35, y + .35, CFG.CELL - .7, CFG.CELL - .7, 3.2, linGrad(x, y, 0, CFG.CELL, [[0, top], [1, bot]]));
     // 상단 하이라이트
     ctx.save(); ctx.globalAlpha = .35; ctx.fillStyle = '#ffffff';
     ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x + 1.6, y + 1.2, CFG.CELL - 3.2, 3.4, 1.7) : ctx.rect(x + 1.6, y + 1.2, CFG.CELL - 3.2, 3.4);
     ctx.fill(); ctx.restore();
+    if (r >= CFG.ROWS - CFG.wallZoneRows) {              // 성곽 부지 표식(점선 테두리 + 벽돌 결)
+      ctx.save();
+      ctx.globalAlpha = .55; ctx.strokeStyle = '#8e7a52'; ctx.lineWidth = .7;
+      ctx.setLineDash([2.2, 1.8]);
+      rrect(x + 2.4, y + 2.4, CFG.CELL - 4.8, CFG.CELL - 4.8, 2.4); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = .22; ctx.strokeStyle = '#6f5c3a';
+      for (let i = 1; i < 3; i++) {
+        const yy = y + i * (CFG.CELL / 3);
+        ctx.beginPath(); ctx.moveTo(x + 4, yy); ctx.lineTo(x + CFG.CELL - 4, yy); ctx.stroke();
+      }
+      ctx.restore();
+    }
     // 잔디 결(결정론 노이즈)
     const n = hash01(c, r);
     ctx.save(); ctx.globalAlpha = .3; ctx.strokeStyle = '#5da83c'; ctx.lineWidth = .7;
@@ -2341,6 +2370,9 @@
     bossAlive: () => hasBoss(),
     bossHold: () => S.bossHold,
     sealedNow: () => sealedCount(),
+    inWallZone: (r) => inWallZone(r),
+    wallZoneRows: () => CFG.wallZoneRows,
+    wallBonus: () => CFG.wallBonus,
     bossHp: () => { const b = S.enemies.find(e => e.boss); return b ? b.hp : 0; },
     bossMaxHp: () => { const b = S.enemies.find(e => e.boss); return b ? b.hpMax : 0; },
     spawnBoss: () => { spawnBoss(); return true; },
