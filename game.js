@@ -34,14 +34,20 @@
     goldGrantSec: 4,                      // 보급(무료 조각) 주기 — 소유 조각 없고 골드 부족일 때
     wavesPerStage: 10,                    // 스테이지 = 10웨이브 (클리어 시 강화 상점)
     stageSpeedStep: 0.06,                 // 스테이지마다 적 속도 +6%
-    stageSpawnStep: 0.05,                 // 스테이지마다 스폰 간격 -5% (하한 0.45배)
-    stageHpEvery: 2,                      // 2스테이지마다 적 HP +1
+    stageSpawnStep: 0.06,                 // 스테이지마다 스폰 간격 -5% (하한 0.45배)
+    stageHpEvery: 2,                      // (미사용) 과거 규칙
+    stageHpStep: 2.0,                      // 스테이지마다 적 HP 누적 증가
     stageClearHp: 1,                      // 스테이지 클리어 시 성 HP +1(최대까지)
     tipSeconds: 4.5,                      // 보드 안내 툴팁 표시 시간(초)
     atkEvery: 0.85,                       // 적이 벽을 때리는 간격(초)
     atkDmg: 1,                            // 적 1회 타격 데미지
-    duraMaxLv: 5, duraCost0: 15, duraCostStep: 10,   // 벽 내구도 업그레이드
-    dmgMaxLv: 5, dmgCost0: 12, dmgCostStep: 8,       // 석궁 공격력 업그레이드
+    duraMaxLv: 999, duraCost0: 15, duraCostMul: 1.30,  // 벽 내구도 업그레이드(무한)
+    dmgMaxLv: 999, dmgCost0: 12, dmgCostMul: 1.30,     // 대포 공격력 업그레이드(무한)
+    bossEvery: 2,                          // 3스테이지마다 보스 스테이지
+    bossWave: 10,                          // 보스 등장 웨이브(스테이지 마지막)
+    bossHpBase: 12, bossHpPerStage: 6,     // 보스 HP = 12 + (스테이지-1)*6
+    bossCastleDmg: 2, bossWallDmg: 2,      // 보스가 성/벽에 주는 피해
+    bossSpeedMul: 0.75, bossGold: 30, bossScore: 300,   // 보스는 느리고, 잡으면 큰 보상
   };
   const HOLE = -2, BLOCK = 1, FLOOR = 0, CASTLE = 9, BALLISTA = 8, HOLE_C = 7;
 
@@ -109,6 +115,7 @@
     nameInput: document.getElementById('nameInput'),
     bestRecord: document.getElementById('bestRecord'),
     boardTip: document.getElementById('boardTip'),
+    stageNote: document.getElementById('stageNote'),
     resultTitle: document.getElementById('resultTitle'),
     rScore: document.getElementById('resultScore'),
     rWave: document.getElementById('resultWave'),
@@ -504,8 +511,9 @@
 
   function canAfford(i) { return !S.shop[i] || S.gold >= priceOf(S.pieces[i]); }
   // ── 업그레이드(골드) ────────────────────────────────
-  function duraCost() { return CFG.duraCost0 + (S.durLv - 1) * CFG.duraCostStep; }
-  function dmgCost() { return CFG.dmgCost0 + (S.dmgLv - 1) * CFG.dmgCostStep; }
+  // 무한 업그레이드 — 레벨마다 ×1.30 (수입보다 빠르게 상승해 자연 상한 형성)
+  function duraCost() { return Math.round(CFG.duraCost0 * Math.pow(CFG.duraCostMul, S.durLv - 1)); }
+  function dmgCost()  { return Math.round(CFG.dmgCost0  * Math.pow(CFG.dmgCostMul,  S.dmgLv  - 1)); }
   function buyDurability() {
     if (S.durLv >= CFG.duraMaxLv) return false;
     const cost = duraCost();
@@ -574,6 +582,9 @@
       : '벽 내구도 MAX (Lv' + S.durLv + ')';
     UI.upCannon.disabled = !dOk || S.gold < dmgCost();
     UI.upDura.disabled = !uOk || S.gold < duraCost();
+    if (UI.stageNote) UI.stageNote.textContent = ((S.stage + 1) % CFG.bossEvery === 0)
+      ? '다음 STAGE ' + (S.stage + 1) + ' — 보스 스테이지! (적이 더 빠르고 단단해집니다)'
+      : '다음 스테이지는 적이 더 빠르고 단단해집니다 (벽은 그대로 유지)';
   }
 
   // ── 보드 안내 툴팁 (첫 웨이브 1회 · 최대 3판까지) ──────
@@ -778,6 +789,16 @@
     // 줄 위 적 전멸
     S.enemies = S.enemies.filter(e => {
       const onRow = rows.includes(Math.round(e.y)), onCol = cols.includes(Math.round(e.x));
+      if (e.boss) {                                  // 보스는 줄 폭발로 죽지 않는다(3 데미지)
+        if (onRow || onCol) {
+          e.hp -= 3; addFx('hit', e.x, e.y);
+          if (e.hp <= 0) {
+            S.kills++; S.score += CFG.bossScore; gainGold(CFG.bossGold + S.stage * 5);
+            S.banner = 1.6; S.bannerSub = '보스 격퇴!'; addFx('burst', e.x, e.y); return false;
+          }
+        }
+        return true;
+      }
       if (onRow || onCol) { hit++; S.kills++; S.score += CFG.scoreKill * 2; gainGold(CFG.goldLineKill); addFx('kill', e.x, e.y); return false; }
       return true;
     });
@@ -798,7 +819,21 @@
   const waveT = (a, b) => lerp(a, b, (S.wave - 1) / (CFG.waves - 1));
   function enemySpeed() {
     const base = lerp(CFG.speedStart, CFG.speedEnd, (S.wave - 1) / (CFG.wavesPerStage - 1));
-    return base * (1 + (S.stage - 1) * CFG.stageSpeedStep);
+    return base * Math.pow(1 + CFG.stageSpeedStep, S.stage - 1);   // 무한 스테이지: 누적 가속
+  }
+
+  function isBossStage() { return S.stage % CFG.bossEvery === 0; }
+  /** 보스 등장 — 마지막 웨이브, 보스 스테이지에서 1기 */
+  function spawnBoss() {
+    const h = HOLES[Math.floor(S.rnd() * HOLES.length)];
+    const hp = CFG.bossHpBase + (S.stage - 1) * CFG.bossHpPerStage;
+    S.enemies.push({
+      id: ++spawn._id || (spawn._id = 1),
+      x: h[0], y: h[1] + 0.15, hp: hp, hpMax: hp, tint: ENEMY_TINT.length - 1,
+      spd: enemySpeed() * CFG.bossSpeedMul, t: 0, boss: true,
+    });
+    S.banner = 1.8; S.bannerSub = 'BOSS 등장!';
+    S.shake = Math.max(S.shake, 5); S.flash = Math.max(S.flash, .16);
   }
 
   function spawn() {
@@ -809,7 +844,7 @@
     S.enemies.push({
       id: ++spawn._id || (spawn._id = 1),
       x: h[0], y: h[1] + 0.15,
-      hp: 1 + Math.floor((S.stage - 1) / CFG.stageHpEvery) + (S.wave >= CFG.wavesPerStage - 1 ? 1 : 0),
+      hp: 1 + Math.floor((S.stage - 1) * CFG.stageHpStep) + (S.wave >= CFG.wavesPerStage - 1 ? 1 : 0),
       tint: tintIdx,
       spd: enemySpeed() * (1 + (S.rnd() - .5) * .12), t: 0,
     });
@@ -829,7 +864,8 @@
           const row = S.dist[tr];
           const here = (row && row[tc] !== undefined) ? row[tc] : -1;
           if (here === 0) {                       // 성 도달
-            e.dead = true; S.hp -= 1; S.shake = 6; S.flash = .22;
+            const cdmg = e.boss ? CFG.bossCastleDmg : 1;
+            e.dead = true; S.hp -= cdmg; S.shake = e.boss ? 11 : 6; S.flash = e.boss ? .34 : .22;
             S.waveDmg = true; S.noDmgStreak = 0;
             addFx('hit', tc, tr);
             break;
@@ -845,7 +881,10 @@
             const tgt = pickBlockTarget(tc, tr);
             if (tgt) {
               e.atkCd = (e.atkCd === undefined ? 0 : e.atkCd) - dt;
-              if (e.atkCd <= 0) { e.atkCd = CFG.atkEvery; hitBlock(tgt[0], tgt[1], CFG.atkDmg); }
+              if (e.atkCd <= 0) {
+                e.atkCd = e.boss ? CFG.atkEvery * .7 : CFG.atkEvery;
+                hitBlock(tgt[0], tgt[1], e.boss ? CFG.bossWallDmg : CFG.atkDmg);
+              }
               e.atkAnim = .28;
             }
             break;
@@ -929,7 +968,12 @@
           tgt.hp -= (b.dmg || 1);      // v0.5: 석궁 공격력 업그레이드 반영
           addFx('hit', tgt.x, tgt.y);
           if (tgt.hp <= 0) {
-            tgt.dead = true; S.kills++; S.score += CFG.scoreKill; gainGold(CFG.goldKill);
+            tgt.dead = true; S.kills++;
+            if (tgt.boss) {
+              S.score += CFG.bossScore; gainGold(CFG.bossGold + S.stage * 5);
+              S.banner = 1.8; S.bannerSub = '보스 격퇴!'; S.shake = Math.max(S.shake, 8);
+              addFx('burst', tgt.x, tgt.y);
+            } else { S.score += CFG.scoreKill; gainGold(CFG.goldKill); }
             addFx('kill', tgt.x, tgt.y); S.shake = Math.max(S.shake, 3);
           }
         }
@@ -961,7 +1005,7 @@
     S.spawnT -= dt;
     if (S.spawnT <= 0 && S.wave <= CFG.waves) {
       spawn();
-      const stageMul = Math.max(0.45, 1 - (S.stage - 1) * CFG.stageSpawnStep);
+      const stageMul = Math.max(0.32, Math.pow(1 - CFG.stageSpawnStep, S.stage - 1));   // 누적 스폰 증가
       S.spawnT = lerp(CFG.spawnStart, CFG.spawnEnd, (S.wave - 1) / (CFG.wavesPerStage - 1))
         * (0.85 + S.rnd() * .3) * stageMul;
     }
@@ -987,6 +1031,7 @@
       if (!S.waveDmg) { S.noDmgStreak++; S.bestStreak = Math.max(S.bestStreak, S.noDmgStreak); }
       S.waveDmg = false;
       if (S.wave > CFG.wavesPerStage) { stageClear(); return; }   // 10웨이브 = 1스테이지 클리어
+      if (S.wave === CFG.bossWave && isBossStage()) { spawnBoss(); return; }
       S.banner = 1.1; S.bannerSub = `WAVE ${S.wave}/${CFG.wavesPerStage}`;
     }
     // 보급 — 살 수 있는 조각도, 소유한 조각도 없으면 주기적으로 무료 dot 1개
@@ -1094,6 +1139,21 @@
   // 벡터 캐릭터 — 도트 아트 대신 패스로 그린 32비트 캐릭터(2차 시안)
   //   적 · 석궁 · 성 상단을 벡터 패스 + 그라디언트 + 림라이트로 재작성
   // ------------------------------------------------------------------
+  /** 보스 왕관 */
+  function drawBossCrown(x, y, t) {
+    const cx = x + CFG.CELL / 2, cy = y - 1.4 + Math.sin(t * 3.2) * .35;
+    ctx.save();
+    shadowOn(2, 'rgba(120,60,0,.5)', 0, .6);
+    ctx.beginPath();
+    ctx.moveTo(cx - 5, cy + 3.6); ctx.lineTo(cx - 5, cy - 1.2); ctx.lineTo(cx - 2.5, cy + .8);
+    ctx.lineTo(cx, cy - 2.6); ctx.lineTo(cx + 2.5, cy + .8); ctx.lineTo(cx + 5, cy - 1.2);
+    ctx.lineTo(cx + 5, cy + 3.6); ctx.closePath();
+    ctx.fillStyle = linGrad(cx, cy - 2.6, cx, cy + 3.6, [[0, '#fff3c4'], [.5, C.gold], [1, C.gold2]]);
+    ctx.fill(); shadowOff();
+    ctx.strokeStyle = 'rgba(122,90,54,.85)'; ctx.lineWidth = .7; ctx.stroke();
+    ctx.restore();
+  }
+
   function drawEnemyVector(x, y, tintIdx, t, tOff, atk) {
     const base = ENEMY_TINT[tintIdx] || C.red;
     const dark = ENEMY_DARK[tintIdx] || C.redDk;
@@ -1387,12 +1447,21 @@
     // 적 — 벡터 캐릭터
     for (const e of S.enemies) {
       const [x, y] = cellRect(e.x, e.y);
-      drawEnemyVector(x, y, e.tint, t, e.t, e.atkAnim);
+      if (e.boss) {
+        const cx = x + CFG.CELL / 2, cy = y + CFG.CELL / 2, k = 1.45;
+        ctx.save(); ctx.translate(cx, cy); ctx.scale(k, k); ctx.translate(-cx, -cy);
+        drawEnemyVector(x, y, e.tint, t, e.t, e.atkAnim); ctx.restore();
+        drawBossCrown(x, y, t);
+      } else drawEnemyVector(x, y, e.tint, t, e.t, e.atkAnim);
       if (e.hp > 1) {
-        const pillW = 8, pillX = x + 6, pillY = y + 1.2;
-        ctx.save(); shadowOn(1.6, 'rgba(10,14,26,.5)', 0, .6);
-        fillRR(pillX, pillY, pillW, 2.1, 1.05, 'rgba(20,16,32,.85)'); shadowOff();
-        fillRR(pillX + .35, pillY + .35, Math.max(1.2, (pillW - .7) * clamp(e.hpMax ? e.hp / e.hpMax : .6, 0, 1)), 1.4, .7, '#7bf06a');
+        const big = !!e.boss;
+        const pillW = big ? 16 : 8, pillH = big ? 3 : 2.1,
+              pillX = x + (big ? 2 : 6), pillY = y + (big ? CFG.CELL - 1.4 : 1.2);
+        ctx.save(); shadowOn(1.8, 'rgba(10,14,26,.55)', 0, .6);
+        fillRR(pillX, pillY, pillW, pillH, pillH / 2, 'rgba(14,12,24,.92)'); shadowOff();
+        const ratio = clamp(e.hpMax ? e.hp / e.hpMax : .6, 0, 1);
+        fillRR(pillX + .6, pillY + .6, Math.max(1.2, (pillW - 1.2) * ratio), pillH - 1.2, (pillH - 1.2) / 2,
+               big ? '#ff5a3c' : '#7bf06a');
         ctx.restore();
       }
     }
@@ -2235,6 +2304,13 @@
                     waveGold: S.stWaveGold, gold: S.gold, bought: S.bought,
                     durLv: S.durLv, dmgLv: S.dmgLv, kills: S.kills, wallBreak: S.wallBreak,
                     stage: S.stage, wave: S.wave, hp: S.hp, score: S.score, runTime: S.runTime }),
+    bossAlive: () => S.enemies.some(e => e.boss),
+    bossHp: () => { const b = S.enemies.find(e => e.boss); return b ? b.hp : 0; },
+    bossMaxHp: () => { const b = S.enemies.find(e => e.boss); return b ? b.hpMax : 0; },
+    spawnBoss: () => { spawnBoss(); return true; },
+    isBossStage: () => isBossStage(),
+    duraCost: () => duraCost(),
+    dmgCost: () => dmgCost(),
     tipT: () => S.tipT,
     tipShown: () => S.tipShown,
     setTip: (v) => { S.tipT = v; if (v > 0) showTip(); else hideTip(); },

@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>미궁 방어대 — 프로토타입 (HD32 · v0.7)</title>
+<title>미궁 방어대 — 프로토타입 (HD32 · v0.8)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Gothic+A1:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261015-9">
+<link rel="stylesheet" href="styles.css?v=20261015-10">
 </head>
 <body>
 <div class="phone-shell">
@@ -33,7 +33,7 @@
       <p class="tagline">테트로미노로 <b>미로</b>를 깔아<br>적의 길을 끊어라</p>
 
       <div class="title-stats">
-        <div><span>스테이지</span><strong>10 웨이브</strong></div>
+        <div><span>스테이지</span><strong>무한</strong></div>
         <div><span>성 체력</span><strong>5</strong></div>
         <div><span>최고 기록</span><strong id="bestRecord">—</strong></div>
       </div>
@@ -41,14 +41,14 @@
       <ol class="howto">
         <li><b>드래그로 조각 배치</b><span>성 옆 칸에도 설치됩니다 · 탭 = 회전</span></li>
         <li><b>막힌 적은 벽을 부순다</b><span>벽마다 내구도 · 골드로 벽 내구도와 대포 공격력을 강화</span></li>
-        <li><b>10웨이브 = 스테이지 클리어</b><span>한 줄을 완성하면 폭발 · 클리어하면 강화 상점이 열립니다</span></li>
+        <li><b>10웨이브 = 스테이지 클리어</b><span>스테이지는 무한 · <b>3스테이지마다 보스</b> · 강화도 무한</span></li>
       </ol>
 
       <label class="name-row">닉네임
         <input id="nameInput" type="text" maxlength="12" placeholder="자동 생성" autocomplete="off">
       </label>
       <button class="primary big" id="startButton">방어 시작</button>
-      <p class="seed-note">시드 고정 · 전원 동일 조건 · 프로토타입 v0.7</p>
+      <p class="seed-note">시드 고정 · 전원 동일 조건 · 프로토타입 v0.8</p>
     </div>
   </section>
 
@@ -90,7 +90,7 @@
       <button class="primary" id="upCannon">대포 공격력 강화</button>
       <button class="primary" id="upDura">벽 내구도 강화</button>
       <button class="ghost" id="nextStage">다음 스테이지 ▶</button>
-      <p class="seed-note">다음 스테이지는 적이 더 빠르고 단단해집니다 (벽은 그대로 유지)</p>
+      <p class="seed-note" id="stageNote">다음 스테이지는 적이 더 빠르고 단단해집니다 (벽은 그대로 유지)</p>
     </div>
   </section>
 
@@ -98,6 +98,6 @@
   <footer class="hint" id="hintBar">드래그 = 배치 · 탭 = 회전 · 하단 칩 = 업그레이드</footer>
 </div>
 
-<script src="game.js?v=20261015-9"></script>
+<script src="game.js?v=20261015-10"></script>
 </body>
 </html>
